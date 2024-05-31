@@ -1,4 +1,3 @@
-import json
 from typing import Any
 from parameterized import parameterized
 
@@ -20,7 +19,7 @@ from posthog.schema import (
     BreakdownAttributionType,
     TrendsQuery,
 )
-from posthog.schema_helpers import to_json
+from posthog.schema_helpers import to_dict
 
 
 base_trends: dict[str, Any] = {"series": []}
@@ -40,8 +39,8 @@ class TestSchemaHelpers(TestCase):
         q1 = EventPropertyFilter(key="abc", operator=PropertyOperator.gt)
         q2 = PersonPropertyFilter(key="abc", operator=PropertyOperator.gt)
 
-        self.assertNotEqual(to_json(q1), to_json(q2))
-        self.assertIn('"type":"event"', str(to_json(q1)))
+        self.assertNotEqual(to_dict(q1), to_dict(q2))
+        self.assertIn('"type":"event"', str(to_dict(q1)))
 
     def test_serializes_to_same_json_for_default_value(self):
         """
@@ -54,16 +53,16 @@ class TestSchemaHelpers(TestCase):
         q2 = EventPropertyFilter(key="abc", operator=None)
         q3 = EventPropertyFilter(key="abc", operator=PropertyOperator.exact)
 
-        self.assertEqual(to_json(q1), to_json(q2))
-        self.assertEqual(to_json(q2), to_json(q3))
-        self.assertNotIn("operator", str(to_json(q1)))
+        self.assertEqual(to_dict(q1), to_dict(q2))
+        self.assertEqual(to_dict(q2), to_dict(q3))
+        self.assertNotIn("operator", str(to_dict(q1)))
 
     def _assert_filter(self, key: str, num_keys: int, q1: BaseModel, q2: BaseModel):
-        self.assertEqual(to_json(q1), to_json(q2))
+        self.assertEqual(to_dict(q1), to_dict(q2))
         if num_keys == 0:
-            self.assertEqual(key in json.loads(to_json(q1)), False)
+            self.assertEqual(key in to_dict(q1), False)
         else:
-            self.assertEqual(num_keys, len(json.loads(to_json(q1))[key].keys()))
+            self.assertEqual(num_keys, len(to_dict(q1)[key].keys()))
 
     @parameterized.expand(
         [
@@ -173,28 +172,26 @@ class TestSchemaHelpers(TestCase):
     def test_removes_frontend_only_props_from_series(self):
         query = TrendsQuery(**{**base_trends, "series": [EventsNode(name="$pageview", custom_name="My custom name")]})
 
-        result_dict = json.loads(to_json(query))
+        result_dict = to_dict(query)
 
         self.assertEqual(result_dict, {"series": [{"name": "$pageview"}]})
 
     def test_removes_frontend_only_props_from_insight_filter(self):
         query = TrendsQuery(**{**base_trends, "trendsFilter": {"showLegend": True}})
 
-        result_dict = json.loads(to_json(query))
+        result_dict = to_dict(query)
 
         self.assertEqual(result_dict, {"series": []})
 
     def test_replaces_display_with_canonic_alternatie(self):
         # time series (gets removed as ActionsLineGraph is the default)
         query = TrendsQuery(**{**base_trends, "trendsFilter": {"display": "ActionsAreaGraph"}})
-        self.assertEqual(json.loads(to_json(query)), {"series": []})
+        self.assertEqual(to_dict(query), {"series": []})
 
         # cumulative time series
         query = TrendsQuery(**{**base_trends, "trendsFilter": {"display": "ActionsLineGraphCumulative"}})
-        self.assertEqual(
-            json.loads(to_json(query)), {"series": [], "trendsFilter": {"display": "ActionsLineGraphCumulative"}}
-        )
+        self.assertEqual(to_dict(query), {"series": [], "trendsFilter": {"display": "ActionsLineGraphCumulative"}})
 
         # total value
         query = TrendsQuery(**{**base_trends, "trendsFilter": {"display": "BoldNumber"}})
-        self.assertEqual(json.loads(to_json(query)), {"series": [], "trendsFilter": {"display": "ActionsBarValue"}})
+        self.assertEqual(to_dict(query), {"series": [], "trendsFilter": {"display": "ActionsBarValue"}})
